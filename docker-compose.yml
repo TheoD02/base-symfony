@@ -1,0 +1,58 @@
+version: '3.9'
+
+services:
+  php:
+    image: devilbox/php-fpm:8.2-work-0.151
+    command: symfony serve
+    environment:
+      SYMFONY_VERSION: 7.0.*@dev
+      NEW_UID: 1000
+      NEW_GID: 1000
+      TIMEZONE: Europe/Paris
+      ENABLE_MODULES:
+      DISABLE_MODULES: oci8,PDO_OCI,pdo_sqlsrv,sqlsrv,rdkafka,swoole,psr,phalcon
+    volumes:
+      - ./:/shared/httpd
+      - ./docker/php-ini/:/etc/php-custom.d/
+      - ./docker/php-fpm/:/etc/php-fpm-custom.d/
+      - ./docker/startup/:/startup.1.d/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.php.rule=Host(`php.alls.dev`)"
+      - "traefik.http.routers.php.tls=true"
+      - "traefik.http.services.php.loadbalancer.server.port=8000"
+    networks:
+      - web_http
+
+  database:
+    image: mariadb:11.1.2
+    environment:
+      MARIADB_DATABASE: symfony
+      MARIADB_USER: root
+      MARIADB_PASSWORD: root
+    networks:
+      - database
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD:
+    ports:
+      - "9000:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.alls.dev`)"
+      - "traefik.http.routers.phpmyadmin.tls=true"
+      - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
+    networks:
+      - database
+      - web_http
+
+networks:
+  database:
+  web_http:
+    external: true
